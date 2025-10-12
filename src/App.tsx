@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { View, Vault, Account, UserProfile } from './types';
 import { storage } from './utils/storage';
+import { api } from './utils/api';
 import { CommandInput } from './components/CommandInput';
+import { QuickCommandInput } from './components/QuickCommandInput';
 import { Overview } from './components/Overview';
 import { Vaults } from './components/Vaults';
 import { Accounts } from './components/Accounts';
@@ -14,81 +16,85 @@ function App() {
   const [vaults, setVaults] = useState<Vault[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [profile, setProfile] = useState<UserProfile>(storage.getProfile());
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setVaults(storage.getVaults());
-    setAccounts(storage.getAccounts());
+    const fetchData = async () => {
+      setIsLoading(true);
+      const [vaultsData, accountsData] = await Promise.all([
+        api.vaults.getAll(),
+        api.accounts.getAll()
+      ]);
+      setVaults(vaultsData);
+      setAccounts(accountsData);
+      setIsLoading(false);
+    };
+    fetchData();
   }, []);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && showCLI) {
-        handleCloseCLI();
+      if (e.key === 'Escape') {
+        if (showCLI) {
+          handleCloseCLI();
+        } else if (currentView !== 'overview') {
+          setCurrentView('overview');
+        }
       }
     };
 
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [showCLI]);
+  }, [showCLI, currentView]);
 
-  const handleAddVault = (vaultData: Omit<Vault, 'id' | 'createdAt' | 'modifiedAt'>) => {
-    const newVault: Vault = {
-      ...vaultData,
-      id: crypto.randomUUID(),
-      createdAt: new Date(),
-      modifiedAt: new Date(),
-    };
-    const updatedVaults = [...vaults, newVault];
-    setVaults(updatedVaults);
-    storage.saveVaults(updatedVaults);
+  const handleAddVault = async (vaultData: Omit<Vault, 'id' | 'createdAt' | 'modifiedAt'>) => {
+    const newVault = await api.vaults.create(vaultData);
+    if (newVault) {
+      setVaults([...vaults, newVault]);
+    }
   };
 
-  const handleUpdateVault = (id: string, vaultData: Partial<Vault>) => {
-    const updatedVaults = vaults.map(vault =>
-      vault.id === id
-        ? { ...vault, ...vaultData, modifiedAt: new Date() }
-        : vault
-    );
-    setVaults(updatedVaults);
-    storage.saveVaults(updatedVaults);
+  const handleUpdateVault = async (id: string, vaultData: Partial<Vault>) => {
+    const updatedVault = await api.vaults.update(id, vaultData);
+    if (updatedVault) {
+      setVaults(vaults.map(vault =>
+        vault.id === id ? updatedVault : vault
+      ));
+    }
   };
 
-  const handleDeleteVault = (id: string) => {
-    const updatedVaults = vaults.filter(vault => vault.id !== id);
-    setVaults(updatedVaults);
-    storage.saveVaults(updatedVaults);
+  const handleDeleteVault = async (id: string) => {
+    const success = await api.vaults.delete(id);
+    if (success) {
+      setVaults(vaults.filter(vault => vault.id !== id));
 
-    const updatedAccounts = accounts.filter(account => account.vaultId !== id);
-    setAccounts(updatedAccounts);
-    storage.saveAccounts(updatedAccounts);
+      const accountsToDelete = accounts.filter(account => account.vaultId === id);
+      await Promise.all(accountsToDelete.map(account => api.accounts.delete(account.id)));
+      setAccounts(accounts.filter(account => account.vaultId !== id));
+    }
   };
 
-  const handleAddAccount = (accountData: Omit<Account, 'id' | 'createdAt' | 'modifiedAt'>) => {
-    const newAccount: Account = {
-      ...accountData,
-      id: crypto.randomUUID(),
-      createdAt: new Date(),
-      modifiedAt: new Date(),
-    };
-    const updatedAccounts = [...accounts, newAccount];
-    setAccounts(updatedAccounts);
-    storage.saveAccounts(updatedAccounts);
+  const handleAddAccount = async (accountData: Omit<Account, 'id' | 'createdAt' | 'modifiedAt'>) => {
+    const newAccount = await api.accounts.create(accountData);
+    if (newAccount) {
+      setAccounts([...accounts, newAccount]);
+    }
   };
 
-  const handleUpdateAccount = (id: string, accountData: Partial<Account>) => {
-    const updatedAccounts = accounts.map(account =>
-      account.id === id
-        ? { ...account, ...accountData, modifiedAt: new Date() }
-        : account
-    );
-    setAccounts(updatedAccounts);
-    storage.saveAccounts(updatedAccounts);
+  const handleUpdateAccount = async (id: string, accountData: Partial<Account>) => {
+    const updatedAccount = await api.accounts.update(id, accountData);
+    if (updatedAccount) {
+      setAccounts(accounts.map(account =>
+        account.id === id ? updatedAccount : account
+      ));
+    }
   };
 
-  const handleDeleteAccount = (id: string) => {
-    const updatedAccounts = accounts.filter(account => account.id !== id);
-    setAccounts(updatedAccounts);
-    storage.saveAccounts(updatedAccounts);
+  const handleDeleteAccount = async (id: string) => {
+    const success = await api.accounts.delete(id);
+    if (success) {
+      setAccounts(accounts.filter(account => account.id !== id));
+    }
   };
 
   const handleUpdateProfile = (newProfile: UserProfile) => {
@@ -115,25 +121,69 @@ function App() {
         return <Overview vaults={vaults} accounts={accounts} onOpenCLI={handleOpenCLI} />;
       case 'vaults':
         return (
-          <Vaults
-            vaults={vaults}
-            onAddVault={handleAddVault}
-            onUpdateVault={handleUpdateVault}
-            onDeleteVault={handleDeleteVault}
-          />
+          <>
+            <QuickCommandInput
+              vaults={vaults}
+              accounts={accounts}
+              username={profile.username}
+              onAddVault={handleAddVault}
+              onUpdateVault={handleUpdateVault}
+              onDeleteVault={handleDeleteVault}
+              onAddAccount={handleAddAccount}
+              onUpdateAccount={handleUpdateAccount}
+              onDeleteAccount={handleDeleteAccount}
+              onNavigate={handleNavigate}
+            />
+            <Vaults
+              vaults={vaults}
+              onAddVault={handleAddVault}
+              onUpdateVault={handleUpdateVault}
+              onDeleteVault={handleDeleteVault}
+            />
+          </>
         );
       case 'accounts':
         return (
-          <Accounts
-            accounts={accounts}
-            vaults={vaults}
-            onAddAccount={handleAddAccount}
-            onUpdateAccount={handleUpdateAccount}
-            onDeleteAccount={handleDeleteAccount}
-          />
+          <>
+            <QuickCommandInput
+              vaults={vaults}
+              accounts={accounts}
+              username={profile.username}
+              onAddVault={handleAddVault}
+              onUpdateVault={handleUpdateVault}
+              onDeleteVault={handleDeleteVault}
+              onAddAccount={handleAddAccount}
+              onUpdateAccount={handleUpdateAccount}
+              onDeleteAccount={handleDeleteAccount}
+              onNavigate={handleNavigate}
+            />
+            <Accounts
+              accounts={accounts}
+              vaults={vaults}
+              onAddAccount={handleAddAccount}
+              onUpdateAccount={handleUpdateAccount}
+              onDeleteAccount={handleDeleteAccount}
+            />
+          </>
         );
       case 'profile':
-        return <Profile profile={profile} onUpdateProfile={handleUpdateProfile} />;
+        return (
+          <>
+            <QuickCommandInput
+              vaults={vaults}
+              accounts={accounts}
+              username={profile.username}
+              onAddVault={handleAddVault}
+              onUpdateVault={handleUpdateVault}
+              onDeleteVault={handleDeleteVault}
+              onAddAccount={handleAddAccount}
+              onUpdateAccount={handleUpdateAccount}
+              onDeleteAccount={handleDeleteAccount}
+              onNavigate={handleNavigate}
+            />
+            <Profile profile={profile} onUpdateProfile={handleUpdateProfile} />
+          </>
+        );
       default:
         return <Overview vaults={vaults} accounts={accounts} onOpenCLI={handleOpenCLI} />;
     }
@@ -153,19 +203,18 @@ function App() {
         </div>
 
         <div className="border border-gray-800 p-6 md:p-8 bg-gray-950 shadow-2xl">
-          {renderView()}
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="font-mono text-green-500 mb-4">Loading data from API...</div>
+              <div className="inline-block animate-pulse">
+                <Terminal size={48} className="text-green-500" />
+              </div>
+            </div>
+          ) : (
+            renderView()
+          )}
         </div>
 
-        {currentView !== 'overview' && (
-          <div className="mt-4 text-center">
-            <button
-              onClick={handleOpenCLI}
-              className="font-mono text-sm text-blue-500 hover:text-blue-400 transition-colors border border-blue-500 px-4 py-2 hover:bg-blue-500 hover:bg-opacity-10"
-            >
-              [ OPEN CLI ]
-            </button>
-          </div>
-        )}
 
         <div className="mt-4 text-center font-mono text-xs text-gray-700">
           © 2025 Secure Vault | Terminal Edition
