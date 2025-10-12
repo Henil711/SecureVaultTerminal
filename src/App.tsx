@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { View, Vault, Account, UserProfile } from './types';
 import { storage } from './utils/storage';
 import { CommandInput } from './components/CommandInput';
-import { QuickCommandInput } from './components/QuickCommandInput';
 import { Overview } from './components/Overview';
 import { Vaults } from './components/Vaults';
 import { Accounts } from './components/Accounts';
@@ -23,18 +22,14 @@ function App() {
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (showCLI) {
-          handleCloseCLI();
-        } else if (currentView !== 'overview') {
-          setCurrentView('overview');
-        }
+      if (e.key === 'Escape' && showCLI) {
+        handleCloseCLI();
       }
     };
 
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [showCLI, currentView]);
+  }, [showCLI]);
 
   const handleAddVault = (vaultData: Omit<Vault, 'id' | 'createdAt' | 'modifiedAt'>) => {
     const newVault: Vault = {
@@ -120,69 +115,25 @@ function App() {
         return <Overview vaults={vaults} accounts={accounts} onOpenCLI={handleOpenCLI} />;
       case 'vaults':
         return (
-          <>
-            <QuickCommandInput
-              vaults={vaults}
-              accounts={accounts}
-              username={profile.username}
-              onAddVault={handleAddVault}
-              onUpdateVault={handleUpdateVault}
-              onDeleteVault={handleDeleteVault}
-              onAddAccount={handleAddAccount}
-              onUpdateAccount={handleUpdateAccount}
-              onDeleteAccount={handleDeleteAccount}
-              onNavigate={handleNavigate}
-            />
-            <Vaults
-              vaults={vaults}
-              onAddVault={handleAddVault}
-              onUpdateVault={handleUpdateVault}
-              onDeleteVault={handleDeleteVault}
-            />
-          </>
+          <Vaults
+            vaults={vaults}
+            onAddVault={handleAddVault}
+            onUpdateVault={handleUpdateVault}
+            onDeleteVault={handleDeleteVault}
+          />
         );
       case 'accounts':
         return (
-          <>
-            <QuickCommandInput
-              vaults={vaults}
-              accounts={accounts}
-              username={profile.username}
-              onAddVault={handleAddVault}
-              onUpdateVault={handleUpdateVault}
-              onDeleteVault={handleDeleteVault}
-              onAddAccount={handleAddAccount}
-              onUpdateAccount={handleUpdateAccount}
-              onDeleteAccount={handleDeleteAccount}
-              onNavigate={handleNavigate}
-            />
-            <Accounts
-              accounts={accounts}
-              vaults={vaults}
-              onAddAccount={handleAddAccount}
-              onUpdateAccount={handleUpdateAccount}
-              onDeleteAccount={handleDeleteAccount}
-            />
-          </>
+          <Accounts
+            accounts={accounts}
+            vaults={vaults}
+            onAddAccount={handleAddAccount}
+            onUpdateAccount={handleUpdateAccount}
+            onDeleteAccount={handleDeleteAccount}
+          />
         );
       case 'profile':
-        return (
-          <>
-            <QuickCommandInput
-              vaults={vaults}
-              accounts={accounts}
-              username={profile.username}
-              onAddVault={handleAddVault}
-              onUpdateVault={handleUpdateVault}
-              onDeleteVault={handleDeleteVault}
-              onAddAccount={handleAddAccount}
-              onUpdateAccount={handleUpdateAccount}
-              onDeleteAccount={handleDeleteAccount}
-              onNavigate={handleNavigate}
-            />
-            <Profile profile={profile} onUpdateProfile={handleUpdateProfile} />
-          </>
-        );
+        return <Profile profile={profile} onUpdateProfile={handleUpdateProfile} />;
       default:
         return <Overview vaults={vaults} accounts={accounts} onOpenCLI={handleOpenCLI} />;
     }
@@ -205,6 +156,16 @@ function App() {
           {renderView()}
         </div>
 
+        {currentView !== 'overview' && (
+          <div className="mt-4 text-center">
+            <button
+              onClick={handleOpenCLI}
+              className="font-mono text-sm text-blue-500 hover:text-blue-400 transition-colors border border-blue-500 px-4 py-2 hover:bg-blue-500 hover:bg-opacity-10"
+            >
+              [ OPEN CLI ]
+            </button>
+          </div>
+        )}
 
         <div className="mt-4 text-center font-mono text-xs text-gray-700">
           © 2025 Secure Vault | Terminal Edition

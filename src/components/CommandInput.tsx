@@ -149,13 +149,7 @@ export const CommandInput = ({
 
       case 'exit':
       case 'quit':
-        if (onExit && onNavigate) {
-          addResult({ type: 'info', message: 'Returning to overview...' });
-          setTimeout(() => {
-            onNavigate('overview');
-            onExit();
-          }, 500);
-        } else if (onExit) {
+        if (onExit) {
           addResult({ type: 'info', message: 'Exiting CLI...' });
           setTimeout(() => onExit(), 500);
         } else {
