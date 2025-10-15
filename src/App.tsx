@@ -160,6 +160,7 @@ function App() {
             <Accounts
               accounts={accounts}
               vaults={vaults}
+              profile={profile}
               onAddAccount={handleAddAccount}
               onUpdateAccount={handleUpdateAccount}
               onDeleteAccount={handleDeleteAccount}
@@ -245,6 +246,7 @@ function App() {
                 vaults={vaults}
                 accounts={accounts}
                 username={profile.username}
+                profile={profile}
                 onAddVault={handleAddVault}
                 onUpdateVault={handleUpdateVault}
                 onDeleteVault={handleDeleteVault}

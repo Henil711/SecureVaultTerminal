@@ -40,6 +40,7 @@ export const storage = {
         username: 'user',
         email: 'user@passwordmanager.local',
         theme: 'green',
+        masterPassword: 'admin123',
       };
     }
     return JSON.parse(data);

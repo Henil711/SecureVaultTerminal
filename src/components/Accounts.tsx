@@ -1,25 +1,29 @@
 import { useState } from 'react';
-import { Account, Vault } from '../types';
+import { Account, Vault, UserProfile } from '../types';
 import { TerminalButton } from './TerminalButton';
 import { TerminalInput } from './TerminalInput';
 import { TerminalTextarea } from './TerminalTextarea';
 import { PasswordInput } from './PasswordInput';
+import { MasterPasswordModal } from './MasterPasswordModal';
 import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, Copy, Check } from 'lucide-react';
 
 interface AccountsProps {
   accounts: Account[];
   vaults: Vault[];
+  profile: UserProfile;
   onAddAccount: (account: Omit<Account, 'id' | 'createdAt' | 'modifiedAt'>) => void;
   onUpdateAccount: (id: string, account: Partial<Account>) => void;
   onDeleteAccount: (id: string) => void;
 }
 
-export const Accounts = ({ accounts, vaults, onAddAccount, onUpdateAccount, onDeleteAccount }: AccountsProps) => {
+export const Accounts = ({ accounts, vaults, profile, onAddAccount, onUpdateAccount, onDeleteAccount }: AccountsProps) => {
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedVaultFilter, setSelectedVaultFilter] = useState<string>('all');
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showMasterPasswordModal, setShowMasterPasswordModal] = useState(false);
+  const [pendingPasswordView, setPendingPasswordView] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     vaultId: '',
     name: '',
@@ -66,15 +70,33 @@ export const Accounts = ({ accounts, vaults, onAddAccount, onUpdateAccount, onDe
   };
 
   const togglePasswordVisibility = (id: string) => {
-    setVisiblePasswords(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
+    const isVisible = visiblePasswords.has(id);
+
+    if (isVisible) {
+      setVisiblePasswords(prev => {
+        const newSet = new Set(prev);
         newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
+        return newSet;
+      });
+    } else {
+      setPendingPasswordView(id);
+      setShowMasterPasswordModal(true);
+    }
+  };
+
+  const handleMasterPasswordVerify = (password: string): boolean => {
+    return password === profile.masterPassword;
+  };
+
+  const handleMasterPasswordSuccess = () => {
+    if (pendingPasswordView) {
+      setVisiblePasswords(prev => {
+        const newSet = new Set(prev);
+        newSet.add(pendingPasswordView);
+        return newSet;
+      });
+      setPendingPasswordView(null);
+    }
   };
 
   const copyToClipboard = async (text: string, id: string) => {
@@ -303,6 +325,16 @@ export const Accounts = ({ accounts, vaults, onAddAccount, onUpdateAccount, onDe
           })
         )}
       </div>
+
+      <MasterPasswordModal
+        isOpen={showMasterPasswordModal}
+        onClose={() => {
+          setShowMasterPasswordModal(false);
+          setPendingPasswordView(null);
+        }}
+        onVerify={handleMasterPasswordVerify}
+        onSuccess={handleMasterPasswordSuccess}
+      />
     </div>
   );
 };

@@ -1,11 +1,13 @@
 import { useState, KeyboardEvent, useRef, useEffect } from 'react';
-import { Terminal, CheckCircle, AlertCircle, Info } from 'lucide-react';
-import { Vault, Account, View } from '../types';
+import { Terminal, CheckCircle, AlertCircle, Info, Eye, EyeOff } from 'lucide-react';
+import { Vault, Account, View, UserProfile } from '../types';
+import { MasterPasswordModal } from './MasterPasswordModal';
 
 interface CommandInputProps {
   vaults: Vault[];
   accounts: Account[];
   username: string;
+  profile: UserProfile;
   onAddVault: (vault: Omit<Vault, 'id' | 'createdAt' | 'modifiedAt'>) => void;
   onUpdateVault: (id: string, vault: Partial<Vault>) => void;
   onDeleteVault: (id: string) => void;
@@ -31,6 +33,7 @@ export const CommandInput = ({
   vaults,
   accounts,
   username,
+  profile,
   onAddVault,
   onUpdateVault,
   onDeleteVault,
@@ -46,6 +49,9 @@ export const CommandInput = ({
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [pendingOperation, setPendingOperation] = useState<PendingOperation | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
+  const [showMasterPasswordModal, setShowMasterPasswordModal] = useState(false);
+  const [pendingPasswordView, setPendingPasswordView] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsEndRef = useRef<HTMLDivElement>(null);
 
@@ -649,6 +655,36 @@ Use Tab for auto-completion, ↑/↓ for history`
     }
   };
 
+  const toggleSearchPasswordVisibility = (accountId: string) => {
+    const isVisible = visiblePasswords.has(accountId);
+
+    if (isVisible) {
+      setVisiblePasswords(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(accountId);
+        return newSet;
+      });
+    } else {
+      setPendingPasswordView(accountId);
+      setShowMasterPasswordModal(true);
+    }
+  };
+
+  const handleMasterPasswordVerify = (password: string): boolean => {
+    return password === profile.masterPassword;
+  };
+
+  const handleMasterPasswordSuccess = () => {
+    if (pendingPasswordView) {
+      setVisiblePasswords(prev => {
+        const newSet = new Set(prev);
+        newSet.add(pendingPasswordView);
+        return newSet;
+      });
+      setPendingPasswordView(null);
+    }
+  };
+
   const renderData = (data: any) => {
     if (!data) return null;
 
@@ -743,12 +779,28 @@ Use Tab for auto-completion, ↑/↓ for history`
             {data.accounts.length > 0 && (
               <div>
                 <div className="font-mono text-xs text-blue-400 mb-2">Accounts ({data.accounts.length}):</div>
-                {data.accounts.map((account: Account) => (
-                  <div key={account.id} className="border border-gray-700 p-2 bg-black mb-1">
-                    <div className="font-mono text-sm text-green-500">{account.name}</div>
-                    <div className="font-mono text-xs text-gray-400">@{account.username}</div>
-                  </div>
-                ))}
+                {data.accounts.map((account: Account) => {
+                  const isPasswordVisible = visiblePasswords.has(account.id);
+                  return (
+                    <div key={account.id} className="border border-gray-700 p-3 bg-black mb-1">
+                      <div className="font-mono text-sm text-green-500 mb-1">{account.name}</div>
+                      <div className="font-mono text-xs text-gray-400 mb-1">@{account.username}</div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="font-mono text-xs text-gray-500">Password:</span>
+                        <span className="font-mono text-xs text-green-500">
+                          {isPasswordVisible ? account.password : '••••••••••'}
+                        </span>
+                        <button
+                          onClick={() => toggleSearchPasswordVisibility(account.id)}
+                          className="text-gray-500 hover:text-green-500 transition-colors"
+                          title={isPasswordVisible ? 'Hide Password' : 'Show Password'}
+                        >
+                          {isPasswordVisible ? <EyeOff size={12} /> : <Eye size={12} />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -855,6 +907,16 @@ Use Tab for auto-completion, ↑/↓ for history`
           />
         </div>
       </div>
+
+      <MasterPasswordModal
+        isOpen={showMasterPasswordModal}
+        onClose={() => {
+          setShowMasterPasswordModal(false);
+          setPendingPasswordView(null);
+        }}
+        onVerify={handleMasterPasswordVerify}
+        onSuccess={handleMasterPasswordSuccess}
+      />
     </div>
   );
 };

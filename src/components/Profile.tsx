@@ -66,6 +66,23 @@ export const Profile = ({ profile, onUpdateProfile }: ProfileProps) => {
               placeholder="Enter email..."
               required
             />
+
+            <div className="mb-4">
+              <label className="block font-mono text-sm text-green-500 mb-2">
+                Master Password <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="password"
+                value={formData.masterPassword}
+                onChange={(e) => setFormData({ ...formData, masterPassword: e.target.value })}
+                placeholder="Enter master password..."
+                required
+                className="w-full bg-black border border-gray-700 text-green-500 font-mono px-3 py-2 focus:outline-none focus:border-green-500"
+              />
+              <div className="font-mono text-xs text-gray-500 mt-1">
+                This password protects access to view account passwords
+              </div>
+            </div>
           </div>
 
           <div className="border-t border-gray-800 pt-4">

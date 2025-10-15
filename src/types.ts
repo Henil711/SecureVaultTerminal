@@ -22,6 +22,7 @@ export interface UserProfile {
   username: string;
   email: string;
   theme: 'green' | 'white' | 'amber';
+  masterPassword: string;
 }
 
 export type View = 'overview' | 'vaults' | 'accounts' | 'profile';
